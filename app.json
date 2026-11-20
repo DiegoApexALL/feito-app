@@ -1,0 +1,32 @@
+{
+  "expo": {
+    "name": "Feito!",
+    "slug": "feito-app",
+    "scheme": "feito",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "app.feito.prestador"
+    },
+    "android": {
+      "package": "app.feito.prestador",
+      "edgeToEdgeEnabled": true
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "O Feito! usa suas fotos para colocar a logo do seu negócio nos orçamentos."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
