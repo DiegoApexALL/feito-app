@@ -40,6 +40,91 @@ export type Prestador = {
   uf: string | null;
   logo_url: string | null;
   cadastro_completo: boolean;
+  plano: 'gratis' | 'pro';
+  plano_ate: string | null;
+};
+
+export const planoAtivo = (p?: Prestador | null) =>
+  !!p && p.plano === 'pro' && (!p.plano_ate || new Date(p.plano_ate) > new Date());
+
+export type Cliente = {
+  id: string;
+  nome: string;
+  telefone: string | null;
+  email: string | null;
+  endereco: string | null;
+  observacoes: string | null;
+  criado_em: string;
+};
+
+export type StatusOrcamento = 'rascunho' | 'enviado' | 'aprovado' | 'recusado' | 'concluido' | 'pago';
+
+export type ItemOrcamento = {
+  id?: string;
+  tipo: 'servico' | 'material';
+  descricao: string;
+  quantidade: number;
+  unidade: string;
+  valor_unitario: number;
+  ordem?: number;
+};
+
+export type Orcamento = {
+  id: string;
+  cliente_id: string | null;
+  numero: number;
+  titulo: string;
+  descricao: string | null;
+  status: StatusOrcamento;
+  desconto: number;
+  subtotal: number;
+  total: number;
+  validade_dias: number;
+  prazo_execucao: string | null;
+  forma_pagamento: string | null;
+  observacoes: string | null;
+  token_publico: string;
+  enviado_em: string | null;
+  visualizado_em: string | null;
+  respondido_em: string | null;
+  respondido_por: string | null;
+  motivo_recusa: string | null;
+  criado_em: string;
+  cliente?: Pick<Cliente, 'id' | 'nome' | 'telefone' | 'endereco'> | null;
+  itens?: ItemOrcamento[];
+};
+
+/** Formato devolvido pela função pública orcamento_publico(token). */
+export type OrcamentoPublico = {
+  numero: number;
+  titulo: string;
+  descricao: string | null;
+  status: StatusOrcamento;
+  subtotal: number;
+  desconto: number;
+  total: number;
+  validade_dias: number;
+  valido_ate: string;
+  prazo_execucao: string | null;
+  forma_pagamento: string | null;
+  observacoes: string | null;
+  criado_em: string;
+  respondido_em: string | null;
+  respondido_por: string | null;
+  cliente: { nome: string } | null;
+  prestador: {
+    nome: string;
+    nome_negocio: string | null;
+    telefone: string | null;
+    documento: string | null;
+    tipo_documento: 'cpf' | 'cnpj' | null;
+    cidade: string | null;
+    uf: string | null;
+    logo_url: string | null;
+    marca_dagua: boolean;
+  };
+  pix: { tipo: TipoChavePix; chave: string; titular: string } | null;
+  itens: ItemOrcamento[];
 };
 
 export type TipoChavePix = 'cpf' | 'cnpj' | 'email' | 'telefone' | 'aleatoria';

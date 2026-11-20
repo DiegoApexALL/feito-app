@@ -33,9 +33,13 @@ export default function AppLayout() {
       </Stack.Protected>
 
       <Stack.Protected guard={!precisaNovaSenha}>
-        {/* Cadastro completo libera o início; senão o app abre no passo 1 */}
+        {/* Cadastro completo libera o app; senão ele abre no passo 1 */}
         <Stack.Protected guard={completo}>
-          <Stack.Screen name="index" options={{ headerShown: false }} />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="cliente/[id]" />
+          <Stack.Screen name="orcamento/editar" options={{ presentation: 'fullScreenModal', headerShown: false }} />
+          <Stack.Screen name="orcamento/[id]" />
+          <Stack.Screen name="planos" options={{ presentation: 'modal' }} />
         </Stack.Protected>
         <Stack.Screen name="perfil" options={{ headerShown: completo }} />
         <Stack.Screen name="pagamento" />

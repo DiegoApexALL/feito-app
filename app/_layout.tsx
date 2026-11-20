@@ -26,6 +26,8 @@ function Rotas() {
       <Stack.Protected guard={!!sessao}>
         <Stack.Screen name="(app)" />
       </Stack.Protected>
+      {/* Página que o cliente abre pelo link do WhatsApp (sem login) */}
+      <Stack.Screen name="o/[token]" />
     </Stack>
   );
 }

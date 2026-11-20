@@ -15,6 +15,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { cores, espaco, fonte, raio } from '@/theme';
 import { avaliarSenha } from '@/lib/validacao';
+import { STATUS } from '@/lib/formato';
+import type { StatusOrcamento } from '@/lib/supabase';
 
 /* ---------- Tela ---------- */
 export function Tela({ children, rodape }: { children: ReactNode; rodape?: ReactNode }) {
@@ -92,7 +94,7 @@ export const Campo = forwardRef<TextInput, CampoProps>(function Campo({ rotulo, 
   return (
     <View style={{ marginBottom: espaco.m }}>
       <Text style={[fonte.rotulo, { marginBottom: 6 }]}>{rotulo}</Text>
-      <View style={[s.campo, foco && s.campoFoco, !!erro && s.campoErro]}>
+      <View style={[s.campo, rest.multiline && s.campoMulti, foco && s.campoFoco, !!erro && s.campoErro]}>
         <TextInput
           ref={ref}
           placeholderTextColor={cores.textoSuave}
@@ -107,7 +109,8 @@ export const Campo = forwardRef<TextInput, CampoProps>(function Campo({ rotulo, 
             setFoco(false);
             rest.onBlur?.(e);
           }}
-          style={[s.campoTexto, style]}
+          textAlignVertical={rest.multiline ? 'top' : 'center'}
+          style={[s.campoTexto, rest.multiline && s.campoTextoMulti, style]}
           {...rest}
         />
         {senha ? (
@@ -184,6 +187,45 @@ export function Aviso({ texto, tipo = 'erro' }: { texto: string; tipo?: 'erro' |
   );
 }
 
+/* ---------- Etiqueta de status ---------- */
+export function Etiqueta({ status }: { status: StatusOrcamento }) {
+  const st = STATUS[status];
+  return (
+    <View style={{ backgroundColor: st.fundo, paddingHorizontal: 10, paddingVertical: 4, borderRadius: raio.total, alignSelf: 'flex-start' }}>
+      <Text style={{ color: st.cor, fontSize: 12, fontWeight: '700' }}>{st.rotulo}</Text>
+    </View>
+  );
+}
+
+/* ---------- Cartão ---------- */
+export function Cartao({ children, estilo }: { children: ReactNode; estilo?: ViewStyle }) {
+  return <View style={[{ backgroundColor: cores.superficie, borderRadius: raio.m, padding: espaco.m }, estilo]}>{children}</View>;
+}
+
+/* ---------- Lista vazia ---------- */
+export function Vazio({ titulo, texto, acao }: { titulo: string; texto: string; acao?: ReactNode }) {
+  return (
+    <View style={{ alignItems: 'center', paddingVertical: espaco.xxl, paddingHorizontal: espaco.l, gap: espaco.s }}>
+      <Text style={[fonte.rotulo, { fontSize: 17, color: cores.tinta }]}>{titulo}</Text>
+      <Text style={[fonte.subtitulo, { textAlign: 'center' }]}>{texto}</Text>
+      {acao ? <View style={{ marginTop: espaco.m, alignSelf: 'stretch' }}>{acao}</View> : null}
+    </View>
+  );
+}
+
+/* ---------- Seção ---------- */
+export function Secao({ titulo, children, direita }: { titulo: string; children: ReactNode; direita?: ReactNode }) {
+  return (
+    <View style={{ marginBottom: espaco.l }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: espaco.s }}>
+        <Text style={[fonte.rotulo, { textTransform: 'uppercase', letterSpacing: 0.6, fontSize: 12, color: cores.textoSuave }]}>{titulo}</Text>
+        {direita}
+      </View>
+      {children}
+    </View>
+  );
+}
+
 const s = StyleSheet.create({
   tela: { flex: 1, backgroundColor: cores.fundo },
   conteudo: { padding: espaco.l, paddingTop: espaco.xl, flexGrow: 1 },
@@ -210,6 +252,8 @@ const s = StyleSheet.create({
     backgroundColor: cores.superficie,
     paddingHorizontal: espaco.m,
   },
+  campoMulti: { height: undefined, minHeight: 110, alignItems: 'flex-start', paddingVertical: 12 },
+  campoTextoMulti: { height: undefined, minHeight: 86, lineHeight: 23 },
   campoFoco: { borderColor: cores.primaria },
   campoErro: { borderColor: cores.erro },
   campoTexto: { flex: 1, fontSize: 17, color: cores.tinta, height: '100%' },
