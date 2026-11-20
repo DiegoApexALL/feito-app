@@ -55,6 +55,7 @@ export default function Conta() {
         <Secao titulo="Meu negócio">
           <View style={{ gap: espaco.s }}>
             <Item icone="construct-outline" titulo="Perfil e logo" sub="Aparece no cabeçalho do orçamento" onPress={() => router.push('/perfil')} />
+            <Item icone="pricetags-outline" titulo="Meus preços" sub="Serviços e materiais salvos dos orçamentos" onPress={() => router.push('/catalogo')} />
             <Item icone="qr-code-outline" titulo="Recebimento via Pix" sub="Vai no orçamento com QR Code" onPress={() => router.push('/pagamento')} />
           </View>
         </Secao>

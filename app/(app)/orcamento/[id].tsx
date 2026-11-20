@@ -1,11 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { FotosServico } from '@/components/FotosServico';
+import { QRPix } from '@/components/QRPix';
 import { Aviso, Botao, Cartao, Etiqueta, Secao } from '@/components/ui';
 import { useAuth } from '@/context/AuthContext';
-import { abrirWhatsApp, compartilharPdf, mensagemWhatsApp } from '@/lib/documento';
+import { abrirWhatsApp, compartilharPdf, mensagemWhatsApp, pixDoOrcamento } from '@/lib/documento';
 import { dataBR, linkPublico, moeda, numeroBR, tempoRelativo } from '@/lib/formato';
 import { DadosPagamento, Orcamento, planoAtivo, StatusOrcamento, supabase } from '@/lib/supabase';
 import { cores, espaco, fonte, raio } from '@/theme';
@@ -16,10 +18,11 @@ export default function OrcamentoTela() {
   const [o, setO] = useState<Orcamento | null>(null);
   const [pag, setPag] = useState<DadosPagamento | null>(null);
   const [ocupado, setOcupado] = useState<string | null>(null);
+  const [qrAberto, setQrAberto] = useState(false);
 
   const carregar = useCallback(async () => {
     const [r, p] = await Promise.all([
-      supabase.from('orcamentos').select('*, cliente:clientes(id, nome, telefone, endereco), itens:orcamento_itens(*)').eq('id', id).maybeSingle(),
+      supabase.from('orcamentos').select('*, cliente:clientes(id, nome, telefone, endereco), itens:orcamento_itens(*), fotos:orcamento_fotos(*)').eq('id', id).maybeSingle(),
       supabase.from('dados_pagamento').select('*').maybeSingle(),
     ]);
     const orc = r.data as Orcamento | null;
@@ -43,6 +46,7 @@ export default function OrcamentoTela() {
   }
 
   const marcaDagua = !planoAtivo(prestador);
+  const pix = pixDoOrcamento(o, prestador, pag);
 
   async function mudarStatus(status: StatusOrcamento) {
     const { error } = await supabase.from('orcamentos').update({ status }).eq('id', id);
@@ -161,6 +165,9 @@ export default function OrcamentoTela() {
             <Botao titulo={ocupado === 'pdf' ? 'Gerando…' : 'PDF'} variante="secundario" onPress={gerarPdf} carregando={ocupado === 'pdf'} estilo={{ flex: 1, height: 48 }} />
             <Botao titulo="Compartilhar link" variante="secundario" onPress={compartilharLink} estilo={{ flex: 1.4, height: 48 }} />
           </View>
+          {pix && !['pago', 'recusado'].includes(o.status) ? (
+            <Botao titulo="Receber agora com QR Code Pix" variante="secundario" onPress={() => setQrAberto(true)} estilo={{ height: 48 }} />
+          ) : null}
           {!pag ? (
             <Pressable onPress={() => router.push('/pagamento')}>
               <Text style={[fonte.pequeno, { color: cores.primariaEscura, fontWeight: '600' }]}>+ Cadastre sua chave Pix para o cliente pagar pelo QR Code</Text>
@@ -208,6 +215,17 @@ export default function OrcamentoTela() {
           </Cartao>
         ) : null}
 
+        {o.retorno_em ? (
+          <Cartao estilo={{ flexDirection: 'row', alignItems: 'center', gap: espaco.m }}>
+            <Ionicons name="alarm-outline" size={22} color={cores.primariaEscura} />
+            <Text style={[fonte.corpo, { flex: 1 }]}>Lembrete de retorno em {dataBR(o.retorno_em)}</Text>
+          </Cartao>
+        ) : null}
+
+        <Secao titulo="Fotos do serviço">
+          <FotosServico orcamentoId={o.id} />
+        </Secao>
+
         <Secao titulo="Acompanhamento">
           <Cartao estilo={{ gap: espaco.m }}>
             {linhaTempo.map((p) => (
@@ -229,6 +247,19 @@ export default function OrcamentoTela() {
           ) : null}
         </Secao>
       </ScrollView>
+
+      <Modal visible={qrAberto} animationType="fade" transparent onRequestClose={() => setQrAberto(false)}>
+        <Pressable style={s.qrFundo} onPress={() => setQrAberto(false)}>
+          <View style={s.qrCaixa}>
+            <Text style={[fonte.rotulo, { fontSize: 17, color: cores.tinta }]}>Mostre para o cliente pagar</Text>
+            {pix ? <QRPix codigo={pix} tamanho={240} /> : null}
+            <Text style={{ fontSize: 28, fontWeight: '900', color: cores.tinta }}>{moeda(o.total)}</Text>
+            <Text style={[fonte.pequeno, { textAlign: 'center' }]}>O cliente abre o app do banco, escolhe Pix › Ler QR Code. O valor já vem preenchido.</Text>
+            <Botao titulo="Cliente pagou" onPress={() => { setQrAberto(false); mudarStatus('pago'); }} estilo={{ alignSelf: 'stretch' }} />
+            <Botao titulo="Fechar" variante="texto" onPress={() => setQrAberto(false)} />
+          </View>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -245,4 +276,6 @@ const s = StyleSheet.create({
   },
   zapTexto: { color: '#fff', fontSize: 18, fontWeight: '800' },
   linha: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  qrFundo: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center', padding: espaco.l },
+  qrCaixa: { backgroundColor: cores.superficie, borderRadius: raio.g, padding: espaco.l, alignItems: 'center', gap: espaco.m, width: '100%', maxWidth: 380 },
 });

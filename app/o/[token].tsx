@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams } from 'expo-router';
-import QRCode from 'qrcode';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Image, Linking, Platform, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { QRPix } from '@/components/QRPix';
 import { Aviso, Botao, Etiqueta } from '@/components/ui';
 import { dataBR, moeda, numeroBR } from '@/lib/formato';
 import { gerarPixCopiaECola } from '@/lib/pix';
@@ -24,7 +24,7 @@ export default function OrcamentoDoCliente() {
   const [recusando, setRecusando] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
-  const [qrUri, setQrUri] = useState<string | null>(null);
+  const [fotos, setFotos] = useState<{ url: string; momento: 'antes' | 'depois' }[]>([]);
   const [copiado, setCopiado] = useState(false);
 
   async function carregar() {
@@ -32,6 +32,7 @@ export default function OrcamentoDoCliente() {
     const { data, error } = await supabase.rpc('orcamento_publico', { p_token: token });
     if (error || !data) return setEstado('naoexiste');
     setO(data as OrcamentoPublico);
+    supabase.rpc('fotos_publicas', { p_token: token }).then(({ data: f }) => setFotos((f as typeof fotos) ?? []));
     setNome((n) => n || (data as OrcamentoPublico).cliente?.nome || '');
     setEstado('ok');
   }
@@ -51,13 +52,6 @@ export default function OrcamentoDoCliente() {
       txid: `FEITO${o.numero}`,
     });
   }, [o]);
-
-  useEffect(() => {
-    if (!pix) return;
-    QRCode.toString(pix, { type: 'svg', margin: 1, errorCorrectionLevel: 'M' }).then((svg) =>
-      setQrUri(`data:image/svg+xml;utf8,${encodeURIComponent(svg)}`),
-    );
-  }, [pix]);
 
   async function responder(aprovar: boolean) {
     setErro(null);
@@ -187,6 +181,20 @@ export default function OrcamentoDoCliente() {
           <Text style={fonte.pequeno}>{vencido ? `Venceu em ${dataBR(o.valido_ate)}` : `Válido até ${dataBR(o.valido_ate)}`}</Text>
         </View>
 
+        {fotos.length ? (
+          <View style={[s.cartao, { gap: espaco.s }]}>
+            <Text style={s.rotuloGrupo}>Fotos do serviço</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: espaco.s }}>
+              {fotos.map((f, n) => (
+                <View key={n} style={{ width: '31%' }}>
+                  <Image source={{ uri: f.url }} style={{ width: '100%', aspectRatio: 1, borderRadius: 10 }} />
+                  <Text style={[fonte.pequeno, { textAlign: 'center' }]}>{f.momento === 'antes' ? 'Antes' : 'Depois'}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        ) : null}
+
         {/* Resposta */}
         {aprovado ? (
           <Aviso tipo="sucesso" texto={`Aprovado por ${o.respondido_por ?? 'você'}${o.respondido_em ? ` em ${dataBR(o.respondido_em)}` : ''}. Obrigado!`} />
@@ -226,7 +234,7 @@ export default function OrcamentoDoCliente() {
         {pix && o.status !== 'pago' && o.status !== 'recusado' ? (
           <View style={[s.cartao, { alignItems: 'center', gap: espaco.m }]}>
             <Text style={[fonte.rotulo, { fontSize: 17, color: cores.tinta }]}>Pagar com Pix</Text>
-            {qrUri ? <Image source={{ uri: qrUri }} style={{ width: 200, height: 200 }} accessibilityLabel="QR Code do Pix" /> : <ActivityIndicator color={cores.primaria} />}
+            <QRPix codigo={pix} tamanho={200} />
             <Text style={[fonte.pequeno, { textAlign: 'center' }]}>
               {moeda(o.total)} para {o.pix?.titular}. Abra o app do banco e leia o QR Code, ou copie o código.
             </Text>

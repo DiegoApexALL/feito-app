@@ -39,6 +39,7 @@ export default function AppLayout() {
           <Stack.Screen name="cliente/[id]" />
           <Stack.Screen name="orcamento/editar" options={{ presentation: 'fullScreenModal', headerShown: false }} />
           <Stack.Screen name="orcamento/[id]" />
+          <Stack.Screen name="catalogo" />
           <Stack.Screen name="planos" options={{ presentation: 'modal' }} />
         </Stack.Protected>
         <Stack.Screen name="perfil" options={{ headerShown: completo }} />

@@ -6,7 +6,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { CartaoOrcamento } from '@/components/CartaoOrcamento';
 import { Botao, Secao, Vazio } from '@/components/ui';
 import { useAuth } from '@/context/AuthContext';
-import { moeda } from '@/lib/formato';
+import { abrirWhatsApp } from '@/lib/documento';
+import { dataBR, moeda } from '@/lib/formato';
 import { Orcamento, planoAtivo, supabase } from '@/lib/supabase';
 import { cores, espaco, fonte, raio } from '@/theme';
 
@@ -21,15 +22,26 @@ export default function Inicio() {
   const { prestador } = useAuth();
   const [resumo, setResumo] = useState<Resumo>({ orcamentos: 0, aprovados: 0, faturado: 0, recebido: 0 });
   const [recentes, setRecentes] = useState<Orcamento[]>([]);
+  const [retornos, setRetornos] = useState<Orcamento[]>([]);
   const [atualizando, setAtualizando] = useState(false);
   const primeiroNome = prestador?.nome.split(' ')[0] ?? '';
   const pro = planoAtivo(prestador);
 
   const carregar = useCallback(async () => {
-    const [r, l] = await Promise.all([
+    const daqui15 = new Date(Date.now() + 15 * 86400000).toISOString().slice(0, 10);
+    const [r, l, rt] = await Promise.all([
       supabase.rpc('resumo_mes'),
       supabase.from('orcamentos').select('*, cliente:clientes(id, nome, telefone, endereco)').order('criado_em', { ascending: false }).limit(5),
+      supabase
+        .from('orcamentos')
+        .select('*, cliente:clientes(id, nome, telefone, endereco)')
+        .not('retorno_em', 'is', null)
+        .lte('retorno_em', daqui15)
+        .in('status', ['aprovado', 'concluido', 'pago'])
+        .order('retorno_em')
+        .limit(10),
     ]);
+    if (rt.data) setRetornos(rt.data as Orcamento[]);
     if (r.data) setResumo(r.data as Resumo);
     if (l.data) setRecentes(l.data as Orcamento[]);
   }, []);
@@ -106,6 +118,38 @@ export default function Inicio() {
           ))}
         </View>
 
+        {retornos.length ? (
+          <Secao titulo="Hora de chamar de volta">
+            <View style={{ gap: espaco.s }}>
+              {retornos.map((o) => (
+                <View key={o.id} style={s.retorno}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[fonte.corpo, { fontWeight: '700', color: cores.tinta }]}>{o.cliente?.nome ?? 'Cliente'}</Text>
+                    <Text style={fonte.pequeno} numberOfLines={1}>
+                      {o.titulo} · {dataBR(o.retorno_em)}
+                    </Text>
+                  </View>
+                  <Pressable
+                    onPress={async () => {
+                      await abrirWhatsApp(
+                        `Olá${o.cliente?.nome ? `, ${o.cliente.nome.split(' ')[0]}` : ''}! Aqui é ${prestador?.nome}. Já está na hora da revisão do serviço "${o.titulo}". Quer que eu agende uma visita?`,
+                        o.cliente?.telefone,
+                      );
+                      await supabase.from('orcamentos').update({ retorno_em: null }).eq('id', o.id);
+                      carregar();
+                    }}
+                    style={s.retornoBotao}
+                    accessibilityLabel={`Chamar ${o.cliente?.nome ?? 'cliente'} no WhatsApp`}
+                  >
+                    <Ionicons name="logo-whatsapp" size={18} color="#fff" />
+                    <Text style={{ color: '#fff', fontWeight: '700' }}>Chamar</Text>
+                  </Pressable>
+                </View>
+              ))}
+            </View>
+          </Secao>
+        ) : null}
+
         <Secao
           titulo="Últimos orçamentos"
           direita={
@@ -156,5 +200,7 @@ const s = StyleSheet.create({
   plano: { flexDirection: 'row', alignItems: 'center', gap: espaco.s, backgroundColor: cores.primariaSuave, borderRadius: raio.m, padding: espaco.m },
   resumo: { flexDirection: 'row', gap: espaco.s },
   resumoItem: { flex: 1, backgroundColor: cores.superficie, borderRadius: raio.m, padding: espaco.m, gap: 2 },
+  retorno: { flexDirection: 'row', alignItems: 'center', gap: espaco.m, backgroundColor: cores.superficie, padding: espaco.m, borderRadius: raio.m, borderLeftWidth: 0 },
+  retornoBotao: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#15803D', paddingHorizontal: 14, height: 40, borderRadius: 12 },
   resumoNum: { fontSize: 20, fontWeight: '800', color: cores.tinta },
 });

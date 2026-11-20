@@ -16,6 +16,13 @@ App para prestadores de serviço (eletricista, pedreiro, encanador…) criarem o
 - **Orçamento pronto:** enviar pelo WhatsApp (mensagem pronta com o link), PDF profissional em A4 com logo, QR Code Pix e campo de assinatura, compartilhar link, duplicar, editar e excluir
 - **Acompanhamento:** criado → enviado → cliente abriu o link → aprovado/recusado → concluído → pago
 
+**Novidades da versão 0.2**
+- **Fotos de antes e depois** no orçamento (câmera ou galeria). Elas aparecem no PDF e no link do cliente
+- **Meus preços:** cada item com valor vira um preço salvo, para usar de novo com um toque
+- **Chamar de volta:** lembrete de revisão ou manutenção em 3, 6 ou 12 meses, que aparece no Início com o botão do WhatsApp
+- **Receber agora:** QR Code Pix em tela cheia para o cliente pagar na hora
+- Ícone do app
+
 **Página do cliente (`/o/<código>`)**
 - Abre no navegador, sem login nem instalação
 - Mostra o orçamento, um QR Code Pix com o valor já preenchido, o Pix Copia e Cola, os botões aprovar/recusar (com nome e motivo) e o contato do prestador no WhatsApp
@@ -23,6 +30,11 @@ App para prestadores de serviço (eletricista, pedreiro, encanador…) criarem o
 **Planos (monetização)**
 - Grátis: 5 orçamentos por mês, com o rodapé "Feito com o app Feito!" (cada orçamento enviado divulga o app)
 - Pro (R$ 19,90/mês): ilimitado e sem a marca. O limite é aplicado pelo próprio banco, então não dá para burlar pelo app
+
+## Instalar no Android (APK)
+A cada envio para o `main`, o GitHub Actions monta o APK e publica em **Releases**:
+https://github.com/DiegoApexALL/feito-app/releases. Abra pelo celular, baixe o `.apk` e toque para instalar. Na primeira vez, permita "instalar apps desconhecidos".
+Se o build falhar, o log do erro aparece numa release marcada como "Erro no build".
 
 ## Como rodar
 ```bash

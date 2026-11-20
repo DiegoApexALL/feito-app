@@ -75,6 +75,10 @@ export async function htmlDoOrcamento(o: Orcamento, prest: Prestador, pag: Dados
   .cond { margin-top: 18px; font-size: 10.5pt; line-height: 1.6; }
   .assin { display: flex; gap: 40px; margin-top: 44px; }
   .assin div { flex: 1; border-top: 1px solid #16181D; padding-top: 6px; font-size: 10pt; text-align: center; color: #555B66; }
+  .fotos { display: flex; flex-wrap: wrap; gap: 8px; page-break-inside: avoid; }
+  .fotos figure { margin: 0; width: 23%; }
+  .fotos img { width: 100%; height: 110px; object-fit: cover; border-radius: 8px; }
+  .fotos figcaption { font-size: 9pt; color: #555B66; text-align: center; margin-top: 2px; }
   footer { margin-top: 24px; font-size: 9pt; color: #555B66; text-align: center; }
 </style></head><body>
 <header>
@@ -108,6 +112,15 @@ ${tabela('Materiais', materiais)}
 ${
   pix
     ? `<div class="pix">${qr}<div><b>Pague com Pix</b><div class="muted">Aponte a câmera do app do banco para o QR Code ou use o Pix Copia e Cola. Recebedor: ${esc(pag!.titular_nome)}</div><div class="cc">${esc(pix)}</div></div></div>`
+    : ''
+}
+
+${
+  (o.fotos ?? []).length
+    ? `<h3>Fotos do serviço</h3><div class="fotos">${(o.fotos ?? [])
+        .slice(0, 8)
+        .map((f) => `<figure><img src="${esc(f.url)}"><figcaption>${f.momento === 'antes' ? 'Antes' : 'Depois'}</figcaption></figure>`)
+        .join('')}</div>`
     : ''
 }
 

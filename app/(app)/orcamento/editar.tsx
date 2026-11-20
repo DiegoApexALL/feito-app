@@ -3,11 +3,12 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { SeletorCatalogo } from '@/components/SeletorCatalogo';
 import { SeletorCliente } from '@/components/SeletorCliente';
 import { Aviso, Botao, Campo, Chip, Secao } from '@/components/ui';
 import { dinheiroParaTexto, lerValor, mascaraDinheiro, moeda, numeroBR } from '@/lib/formato';
 import { montarItens } from '@/lib/montarItens';
-import { Cliente, ItemOrcamento, Orcamento, supabase } from '@/lib/supabase';
+import { Cliente, ItemCatalogo, ItemOrcamento, Orcamento, supabase } from '@/lib/supabase';
 import { mascaraTelefone } from '@/lib/validacao';
 import { cores, espaco, fonte, raio } from '@/theme';
 
@@ -30,6 +31,24 @@ const vazio = (tipo: 'servico' | 'material'): ItemEdit => ({ chave: novaChave(),
 const UNIDADES = ['un', 'm', 'm²', 'kg', 'L', 'saco', 'lata', 'rolo', 'cx', 'h', 'dia'];
 const VALIDADES = [7, 15, 30];
 const PAGAMENTOS = ['Pix', '50% de entrada e 50% no fim', 'Pix ou cartão', 'Dinheiro'];
+const RETORNOS = [
+  { meses: 0, rotulo: 'Não lembrar' },
+  { meses: 3, rotulo: '3 meses' },
+  { meses: 6, rotulo: '6 meses' },
+  { meses: 12, rotulo: '1 ano' },
+];
+
+function somarMeses(meses: number) {
+  const d = new Date();
+  d.setMonth(d.getMonth() + meses);
+  return d.toISOString().slice(0, 10);
+}
+
+function mesesAte(data: string | null) {
+  if (!data) return 0;
+  const m = Math.round((new Date(`${data}T12:00:00`).getTime() - Date.now()) / (30.4 * 86400000));
+  return RETORNOS.reduce((melhor, r) => (Math.abs(r.meses - m) < Math.abs(melhor - m) ? r.meses : melhor), 0);
+}
 
 export default function EditarOrcamento() {
   const { id, clienteId, duplicarDe } = useLocalSearchParams<{ id?: string; clienteId?: string; duplicarDe?: string }>();
@@ -38,6 +57,9 @@ export default function EditarOrcamento() {
   const [carregando, setCarregando] = useState(!!(id || duplicarDe));
   const [cliente, setCliente] = useState<Pick<Cliente, 'id' | 'nome' | 'telefone'> | null>(null);
   const [seletor, setSeletor] = useState(false);
+  const [catalogo, setCatalogo] = useState(false);
+  const [retorno, setRetorno] = useState(0);
+  const [retornoOriginal, setRetornoOriginal] = useState<string | null>(null);
   const [titulo, setTitulo] = useState('');
   const [descricao, setDescricao] = useState('');
   const [itens, setItens] = useState<ItemEdit[]>([]);
@@ -73,6 +95,10 @@ export default function EditarOrcamento() {
         setPagamento(o.forma_pagamento ?? '');
         setObs(o.observacoes ?? '');
         setMais(!!(o.prazo_execucao || o.observacoes || Number(o.desconto)));
+        if (!duplicarDe) {
+          setRetorno(mesesAte(o.retorno_em));
+          setRetornoOriginal(o.retorno_em);
+        }
       }
       setCarregando(false);
     })();
@@ -106,6 +132,15 @@ export default function EditarOrcamento() {
     );
   }
 
+  function usarDoCatalogo(lista: ItemCatalogo[]) {
+    setCatalogo(false);
+    setItens((atual) => [
+      ...atual.filter((i) => i.descricao.trim()),
+      ...lista.map((c) => paraEdit({ tipo: c.tipo, descricao: c.descricao, quantidade: 1, unidade: c.unidade, valor_unitario: Number(c.valor_unitario) })),
+    ]);
+    if (!titulo.trim() && lista[0]) setTitulo(lista[0].descricao);
+  }
+
   const alterar = (chave: string, campo: Partial<ItemEdit>) => setItens((l) => l.map((i) => (i.chave === chave ? { ...i, ...campo } : i)));
   const remover = (chave: string) => setItens((l) => l.filter((i) => i.chave !== chave));
 
@@ -127,6 +162,8 @@ export default function EditarOrcamento() {
       prazo_execucao: prazo.trim() || null,
       forma_pagamento: pagamento.trim() || null,
       observacoes: obs.trim() || null,
+      // mantém a data já marcada se o prestador não mudou a escolha
+      retorno_em: retorno === 0 ? null : retornoOriginal && mesesAte(retornoOriginal) === retorno ? retornoOriginal : somarMeses(retorno),
     };
 
     let orcId = id;
@@ -283,6 +320,11 @@ export default function EditarOrcamento() {
                   </Text>
                 </View>
               ))}
+              <Pressable onPress={() => setCatalogo(true)} style={s.catalogo} accessibilityRole="button">
+                <Ionicons name="pricetags-outline" size={20} color={cores.primariaEscura} />
+                <Text style={{ color: cores.primariaEscura, fontWeight: '700', fontSize: 16, flex: 1 }}>Usar dos meus preços</Text>
+                <Ionicons name="chevron-forward" size={18} color={cores.primariaEscura} />
+              </Pressable>
               <View style={{ flexDirection: 'row', gap: espaco.s }}>
                 <Botao titulo="+ Serviço" variante="secundario" estilo={{ flex: 1, height: 48 }} onPress={() => setItens((l) => [...l, vazio('servico')])} />
                 <Botao titulo="+ Material" variante="secundario" estilo={{ flex: 1, height: 48 }} onPress={() => setItens((l) => [...l, vazio('material')])} />
@@ -302,6 +344,13 @@ export default function EditarOrcamento() {
             <View style={[s.chips, { marginBottom: espaco.m }]}>
               {PAGAMENTOS.map((p) => (
                 <Chip key={p} rotulo={p} ativo={pagamento === p} onPress={() => setPagamento(p)} />
+              ))}
+            </View>
+            <Text style={[fonte.rotulo, { marginBottom: 4 }]}>Lembrar de chamar o cliente de volta</Text>
+            <Text style={[fonte.pequeno, { marginBottom: espaco.s }]}>Para revisão, manutenção ou fim da garantia. Aparece na tela inicial na hora certa.</Text>
+            <View style={[s.chips, { marginBottom: espaco.m }]}>
+              {RETORNOS.map((r) => (
+                <Chip key={r.meses} rotulo={r.rotulo} ativo={retorno === r.meses} onPress={() => setRetorno(r.meses)} />
               ))}
             </View>
             {mais ? (
@@ -326,6 +375,7 @@ export default function EditarOrcamento() {
         </View>
       </KeyboardAvoidingView>
 
+      <SeletorCatalogo visivel={catalogo} aoFechar={() => setCatalogo(false)} aoEscolher={usarDoCatalogo} />
       <SeletorCliente
         visivel={seletor}
         aoFechar={() => setSeletor(false)}
@@ -353,6 +403,7 @@ const s = StyleSheet.create({
   alternarAtivo: { backgroundColor: cores.superficie, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 1 },
   alternarTexto: { fontSize: 13, fontWeight: '700', color: cores.textoSuave },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: espaco.s },
+  catalogo: { flexDirection: 'row', alignItems: 'center', gap: espaco.s, padding: espaco.m, borderRadius: raio.m, backgroundColor: cores.primariaSuave },
   rodape: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -90,8 +90,21 @@ export type Orcamento = {
   respondido_por: string | null;
   motivo_recusa: string | null;
   criado_em: string;
+  retorno_em: string | null;
   cliente?: Pick<Cliente, 'id' | 'nome' | 'telefone' | 'endereco'> | null;
   itens?: ItemOrcamento[];
+  fotos?: Foto[];
+};
+
+export type Foto = { id: string; orcamento_id: string; caminho: string; url: string; momento: 'antes' | 'depois'; criado_em: string };
+
+export type ItemCatalogo = {
+  id: string;
+  tipo: 'servico' | 'material';
+  descricao: string;
+  unidade: string;
+  valor_unitario: number;
+  usos: number;
 };
 
 /** Formato devolvido pela função pública orcamento_publico(token). */

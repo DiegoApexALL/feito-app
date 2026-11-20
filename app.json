@@ -3,7 +3,7 @@
     "name": "Feito!",
     "slug": "feito-app",
     "scheme": "feito",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
@@ -13,7 +13,15 @@
     },
     "android": {
       "package": "app.feito.prestador",
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#EA580C"
+      },
+      "versionCode": 1,
+      "permissions": [
+        "CAMERA"
+      ]
     },
     "plugins": [
       "expo-router",
@@ -21,7 +29,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "O Feito! usa suas fotos para colocar a logo do seu negócio nos orçamentos."
+          "photosPermission": "O Feito! usa suas fotos para colocar a logo do seu negócio nos orçamentos.",
+          "cameraPermission": "O Feito! usa a câmera para tirar fotos do serviço (antes e depois)."
         }
       ]
     ],
@@ -30,7 +39,9 @@
     },
     "web": {
       "bundler": "metro",
-      "output": "single"
-    }
+      "output": "single",
+      "favicon": "./assets/favicon.png"
+    },
+    "icon": "./assets/icon.png"
   }
 }
