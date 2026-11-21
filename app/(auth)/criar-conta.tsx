@@ -1,9 +1,9 @@
 import { Link, router } from 'expo-router';
 import { useRef, useState } from 'react';
-import { Text, TextInput, View } from 'react-native';
+import { Alert, Text, TextInput, View } from 'react-native';
 import { Aviso, Botao, Cabecalho, Campo, ForcaDaSenha, Tela } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
-import { emailValido, mascaraTelefone, senhaAceita, soDigitos, telefoneValido, traduzErroAuth } from '@/lib/validacao';
+import { emailValido, mascaraTelefone, senhaAceita, soDigitos, sugerirEmail, telefoneValido, traduzErroAuth } from '@/lib/validacao';
 import { cores, espaco, fonte } from '@/theme';
 
 type Erros = Partial<Record<'nome' | 'telefone' | 'email' | 'senha' | 'confirmar' | 'geral', string>>;
@@ -33,10 +33,20 @@ export default function CriarConta() {
     return e;
   }
 
-  async function criar() {
+  const [reenviado, setReenviado] = useState(false);
+
+  async function criar(conferido = false) {
     const e = validar();
     setErros(e);
     if (Object.keys(e).length) return;
+    const sugestao = sugerirEmail(email);
+    if (sugestao && !conferido) {
+      Alert.alert('Confira seu e-mail', `Você quis dizer ${sugestao}?`, [
+        { text: `Usar ${sugestao}`, onPress: () => { setEmail(sugestao); } },
+        { text: 'Está certo assim', onPress: () => criar(true) },
+      ]);
+      return;
+    }
     setCarregando(true);
     const { data, error } = await supabase.auth.signUp({
       email: email.trim().toLowerCase(),
@@ -51,18 +61,35 @@ export default function CriarConta() {
 
   if (confirmeEmail) {
     return (
-      <Tela rodape={<Botao titulo="Ir para o login" onPress={() => router.replace('/entrar')} />}>
+      <Tela
+        rodape={
+          <>
+            <Botao titulo="Já confirmei, entrar" onPress={() => router.replace('/entrar')} />
+            <Botao titulo="Errei o e-mail" variante="texto" onPress={() => setConfirmeEmail(false)} />
+          </>
+        }
+      >
         <Text style={{ fontSize: 56, marginBottom: espaco.m }}>📬</Text>
         <Cabecalho
           titulo="Confira seu e-mail"
-          subtitulo={`Enviamos um link de confirmação para ${email.trim()}. Toque nele e depois entre com sua senha.`}
+          subtitulo={`Enviamos um link de confirmação para ${email.trim().toLowerCase()}. Toque nele (veja também o Spam/Lixo eletrônico) e depois entre com sua senha.`}
+        />
+        <Text style={[fonte.pequeno, { marginBottom: espaco.m }]}>Se o link abrir uma página de erro no navegador, tudo bem: a conta já fica confirmada. Volte aqui e entre.</Text>
+        <Botao
+          titulo={reenviado ? 'E-mail reenviado ✓' : 'Reenviar e-mail'}
+          variante="secundario"
+          desabilitado={reenviado}
+          onPress={async () => {
+            await supabase.auth.resend({ type: 'signup', email: email.trim().toLowerCase() });
+            setReenviado(true);
+          }}
         />
       </Tela>
     );
   }
 
   return (
-    <Tela rodape={<Botao titulo="Criar conta" onPress={criar} carregando={carregando} />}>
+    <Tela rodape={<Botao titulo="Criar conta" onPress={() => criar()} carregando={carregando} />}>
       <Cabecalho titulo="Crie sua conta" subtitulo="É grátis e leva menos de 1 minuto." />
       {erros.geral ? <Aviso texto={erros.geral} /> : null}
       <Campo
@@ -129,7 +156,7 @@ export default function CriarConta() {
         textContentType="newPassword"
         erro={erros.confirmar}
         returnKeyType="go"
-        onSubmitEditing={criar}
+        onSubmitEditing={() => criar()}
       />
       <Text style={[fonte.pequeno, { marginTop: espaco.s }]}>
         Ao criar a conta você concorda com os Termos de Uso e a Política de Privacidade (LGPD).

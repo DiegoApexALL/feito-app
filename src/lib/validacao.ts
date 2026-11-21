@@ -25,6 +25,22 @@ export function mascaraDocumento(v: string) {
 
 export const mascaraCep = (v: string) => soDigitos(v).slice(0, 8).replace(/(\d{5})(\d)/, '$1-$2');
 
+/** Erros de digitação comuns no domínio do e-mail. Devolve a sugestão ou null. */
+const DOMINIOS_CERTOS: Record<string, string> = {
+  'gmail.com.br': 'gmail.com', 'gmal.com': 'gmail.com', 'gmial.com': 'gmail.com', 'gmail.co': 'gmail.com', 'gmail.con': 'gmail.com',
+  'gamil.com': 'gmail.com', 'gnail.com': 'gmail.com', 'gmail.cm': 'gmail.com', 'gmail.om': 'gmail.com', 'gmaill.com': 'gmail.com',
+  'hotmial.com': 'hotmail.com', 'hotmal.com': 'hotmail.com', 'hotmail.con': 'hotmail.com', 'hotmail.co': 'hotmail.com',
+  'outlok.com': 'outlook.com', 'outlook.com.br': 'outlook.com', 'outlook.con': 'outlook.com',
+  'yahoo.con': 'yahoo.com', 'yaho.com': 'yahoo.com', 'icloud.con': 'icloud.com', 'icoud.com': 'icloud.com',
+};
+
+export function sugerirEmail(e: string): string | null {
+  const [usuario, dominio] = e.trim().toLowerCase().split('@');
+  if (!usuario || !dominio) return null;
+  const certo = DOMINIOS_CERTOS[dominio];
+  return certo ? `${usuario}@${certo}` : null;
+}
+
 export const emailValido = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e.trim());
 
 export const telefoneValido = (t: string) => {

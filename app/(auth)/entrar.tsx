@@ -3,7 +3,7 @@ import { useRef, useState } from 'react';
 import { Text, TextInput, View } from 'react-native';
 import { Aviso, Botao, Cabecalho, Campo, Tela } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
-import { emailValido, traduzErroAuth } from '@/lib/validacao';
+import { emailValido, sugerirEmail, traduzErroAuth } from '@/lib/validacao';
 import { cores, espaco, fonte } from '@/theme';
 
 export default function Entrar() {
@@ -11,6 +11,8 @@ export default function Entrar() {
   const [senha, setSenha] = useState('');
   const [erro, setErro] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(false);
+  const [naoConfirmado, setNaoConfirmado] = useState(false);
+  const [reenviado, setReenviado] = useState(false);
   const senhaRef = useRef<TextInput>(null);
 
   async function entrar() {
@@ -21,13 +23,36 @@ export default function Entrar() {
     const { error } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password: senha });
     setCarregando(false);
     // Sucesso: o layout raiz troca para o app sozinho
-    if (error) setErro(traduzErroAuth(error.message));
+    if (!error) return;
+    const pendente = error.message.toLowerCase().includes('not confirmed');
+    setNaoConfirmado(pendente);
+    setReenviado(false);
+    const sugestao = sugerirEmail(email);
+    setErro(
+      sugestao && !pendente
+        ? `E-mail ou senha incorretos. Será que o e-mail não é ${sugestao}?`
+        : traduzErroAuth(error.message),
+    );
+  }
+
+  async function reenviar() {
+    await supabase.auth.resend({ type: 'signup', email: email.trim().toLowerCase() });
+    setReenviado(true);
   }
 
   return (
     <Tela rodape={<Botao titulo="Entrar" onPress={entrar} carregando={carregando} />}>
       <Cabecalho titulo="Bem-vindo de volta 👋" subtitulo="Entre para ver seus orçamentos e clientes." />
       {erro ? <Aviso texto={erro} /> : null}
+      {naoConfirmado ? (
+        <Botao
+          titulo={reenviado ? 'E-mail reenviado ✓ (veja o Spam também)' : 'Reenviar e-mail de confirmação'}
+          variante="secundario"
+          desabilitado={reenviado}
+          onPress={reenviar}
+          estilo={{ marginBottom: espaco.m }}
+        />
+      ) : null}
       <Campo
         rotulo="E-mail"
         placeholder="voce@email.com"
