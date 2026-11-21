@@ -16,6 +16,13 @@ App para prestadores de serviço (eletricista, pedreiro, encanador…) criarem o
 - **Orçamento pronto:** enviar pelo WhatsApp (mensagem pronta com o link), PDF profissional em A4 com logo, QR Code Pix e campo de assinatura, compartilhar link, duplicar, editar e excluir
 - **Acompanhamento:** criado → enviado → cliente abriu o link → aprovado/recusado → concluído → pago
 
+**Novidades da versão 0.3**
+- Itens do orçamento com abas **Serviços** e **Materiais**. "Adicionar" abre uma folha com sugestões dos seus preços enquanto você digita, quantidade com + e −, unidade e valor
+- Logo e fotos de qualquer tamanho: o app reduz a imagem antes de enviar
+- Barra de abas acima dos botões do Android
+- Link do cliente publicado no GitHub Pages
+- Assinatura do Pro pelo Mercado Pago, com liberação automática
+
 **Novidades da versão 0.2**
 - **Fotos de antes e depois** no orçamento (câmera ou galeria). Elas aparecem no PDF e no link do cliente
 - **Meus preços:** cada item com valor vira um preço salvo, para usar de novo com um toque
@@ -53,11 +60,18 @@ npx eas-cli deploy          # EAS Hosting (grátis para começar)
 ```
 Coloque o endereço publicado em `EXPO_PUBLIC_SITE_URL` no `.env`.
 
-### Ativar o pagamento do Pro
-1. Crie um link de pagamento recorrente (Mercado Pago Assinaturas ou Stripe Payment Link) e coloque em `EXPO_PUBLIC_CHECKOUT_PRO_URL`.
-2. O app abre o link com `client_reference_id=<id do prestador>`.
-3. No webhook do pagamento aprovado, chame com a chave **service_role** (nunca no app):
-   `select public.ativar_plano_pro('<id do prestador>', 31);`
+### Ativar o pagamento do Pro (Mercado Pago)
+As funções já estão publicadas no Supabase: `assinar-pro` cria a assinatura e devolve o link de pagamento, e `mp-webhook` recebe o aviso e libera o Pro.
+1. No Mercado Pago, abra **Suas integrações** e crie uma aplicação. Copie o **Access Token de produção**.
+2. No Supabase, em **Edge Functions › Secrets**, adicione `MP_ACCESS_TOKEN` com esse token.
+3. Na aplicação do Mercado Pago, em **Webhooks**, use a URL `https://jlcisnsdbrynxozrfqey.supabase.co/functions/v1/mp-webhook`, com os eventos **Planos e assinaturas**. Copie a **assinatura secreta** e salve no Supabase como `MP_WEBHOOK_SECRET`.
+4. Pronto: no app, Conta › Plano › Assinar abre o checkout. O Pro é liberado sozinho quando o pagamento é aprovado e renovado a cada mês. Se a pessoa cancelar, o Pro termina na data já paga.
+
+> Google Play: se o app for publicado na Play Store, a regra para vender assinatura dentro do app é usar o faturamento do Google Play (as regras estão mudando em 2026). No APK direto e no site, o Mercado Pago pode ser usado.
+
+### Página do cliente
+É publicada sozinha no GitHub Pages a cada envio, pelo workflow `site.yml`: `https://diegoapexall.github.io/feito-app/o/<código>`.
+Na primeira vez, confira em **Settings › Pages** se a origem está como *Deploy from a branch* › `gh-pages`.
 
 ## Segurança
 - Senhas pelo Supabase Auth (bcrypt). O app exige 8+ caracteres com letras e números

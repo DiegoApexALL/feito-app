@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useState } from 'react';
 import { Alert, Linking, StyleSheet, Text, View } from 'react-native';
-import { Botao, Cabecalho, Tela } from '@/components/ui';
+import { Botao, Cabecalho, Campo, Tela } from '@/components/ui';
 import { useAuth } from '@/context/AuthContext';
-import { planoAtivo } from '@/lib/supabase';
+import { planoAtivo, supabase } from '@/lib/supabase';
 import { cores, espaco, fonte, raio } from '@/theme';
 
 const PRECO_PRO = 'R$ 19,90';
@@ -27,19 +28,44 @@ export default function Planos() {
   const { prestador, sessao, recarregarPerfil } = useAuth();
   const pro = planoAtivo(prestador);
 
+  const [email, setEmail] = useState(sessao?.user.email ?? '');
+  const [abrindo, setAbrindo] = useState(false);
+  const [aguardando, setAguardando] = useState(false);
+
   async function assinar() {
-    const base = process.env.EXPO_PUBLIC_CHECKOUT_PRO_URL;
-    if (!base) {
-      Alert.alert('Em breve', 'O pagamento do Pro está sendo configurado. Avisaremos você pelo WhatsApp!');
+    setAbrindo(true);
+    const { data, error } = await supabase.functions.invoke('assinar-pro', { body: { email: email.trim() } });
+    setAbrindo(false);
+    if (error || !data?.url) {
+      let codigo = '';
+      try {
+        codigo = (await (error as any)?.context?.json())?.erro ?? '';
+      } catch {}
+      Alert.alert(
+        codigo === 'pagamento_nao_configurado' ? 'Em breve' : 'Ops',
+        codigo === 'pagamento_nao_configurado'
+          ? 'O pagamento do Pro está sendo configurado. Avisaremos você pelo WhatsApp!'
+          : 'Não foi possível abrir o pagamento. Confira o e-mail da sua conta Mercado Pago e tente de novo.',
+      );
       return;
     }
-    // o id vai junto para o webhook de pagamento liberar o Pro na conta certa
-    const url = `${base}${base.includes('?') ? '&' : '?'}client_reference_id=${sessao?.user.id}&prefilled_email=${encodeURIComponent(sessao?.user.email ?? '')}`;
-    await Linking.openURL(url);
+    setAguardando(true);
+    await Linking.openURL(data.url);
   }
 
   return (
-    <Tela rodape={pro ? <Botao titulo="Atualizar status" variante="secundario" onPress={recarregarPerfil} /> : <Botao titulo={`Assinar o Pro · ${PRECO_PRO}/mês`} onPress={assinar} />}>
+    <Tela
+      rodape={
+        pro ? (
+          <Botao titulo="Atualizar status" variante="secundario" onPress={recarregarPerfil} />
+        ) : (
+          <>
+            <Botao titulo={`Assinar o Pro · ${PRECO_PRO}/mês`} onPress={assinar} carregando={abrindo} />
+            {aguardando ? <Botao titulo="Já paguei, atualizar" variante="texto" onPress={recarregarPerfil} /> : null}
+          </>
+        )
+      }
+    >
       <Cabecalho titulo="Seu orçamento com cara de empresa" subtitulo="Comece grátis. Quando o trabalho apertar, vire Pro." />
 
       <View style={[s.plano, pro && { opacity: 0.6 }]}>
@@ -60,6 +86,16 @@ export default function Planos() {
         <Lista itens={PRO} cor="#fff" />
       </View>
 
+      {!pro ? (
+        <Campo
+          rotulo="E-mail da sua conta Mercado Pago"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          dica="Pagamento seguro pelo Mercado Pago, com cartão. Libera na hora."
+        />
+      ) : null}
       <Text style={[fonte.pequeno, { textAlign: 'center' }]}>Cancele quando quiser. Um único serviço fechado já paga o mês.</Text>
     </Tela>
   );

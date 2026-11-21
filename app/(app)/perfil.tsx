@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Aviso, Botao, Cabecalho, Campo, Chip, Passos, Tela } from '@/components/ui';
 import { useAuth } from '@/context/AuthContext';
+import { reduzirImagem } from '@/lib/imagem';
 import { supabase } from '@/lib/supabase';
 import { cnpjValido, cpfValido, mascaraCep, mascaraDocumento, mascaraTelefone, soDigitos, telefoneValido } from '@/lib/validacao';
 import { cores, espaco, fonte, raio } from '@/theme';
@@ -79,19 +80,21 @@ export default function Perfil() {
       mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.7,
-      base64: true,
+      quality: 1,
     });
-    if (r.canceled || !r.assets[0]?.base64 || !sessao) return;
-    const a = r.assets[0];
-    const tipo = a.mimeType ?? 'image/jpeg';
-    const ext = tipo.split('/')[1] ?? 'jpg';
-    const caminho = `${sessao.user.id}/logo-${Date.now()}.${ext}`;
+    if (r.canceled || !r.assets[0] || !sessao) return;
     setEnviandoLogo(true);
-    const { error } = await supabase.storage.from('logos').upload(caminho, decode(a.base64!), { contentType: tipo, upsert: true });
-    setEnviandoLogo(false);
-    if (error) return setErros((e) => ({ ...e, geral: 'Não foi possível enviar a logo (máx. 2 MB).' }));
-    setLogoUrl(supabase.storage.from('logos').getPublicUrl(caminho).data.publicUrl);
+    try {
+      const img = await reduzirImagem(r.assets[0].uri, 600, r.assets[0].width);
+      const caminho = `${sessao.user.id}/logo-${Date.now()}.${img.ext}`;
+      const { error } = await supabase.storage.from('logos').upload(caminho, decode(img.base64), { contentType: img.mime, upsert: true });
+      if (error) throw error;
+      setLogoUrl(supabase.storage.from('logos').getPublicUrl(caminho).data.publicUrl);
+    } catch {
+      setErros((e) => ({ ...e, geral: 'Não foi possível enviar a logo. Verifique a internet e tente de novo.' }));
+    } finally {
+      setEnviandoLogo(false);
+    }
   }
 
   function validar(): Erros {

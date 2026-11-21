@@ -1,0 +1,43 @@
+name: Publicar página do cliente
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: site
+  cancel-in-progress: true
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      EXPO_PUBLIC_SUPABASE_URL: https://jlcisnsdbrynxozrfqey.supabase.co
+      EXPO_PUBLIC_SUPABASE_KEY: sb_publishable_-cL1n7qt__nXZjNU0gVkug_pkZpp8kK
+      EXPO_PUBLIC_SITE_URL: https://diegoapexall.github.io/feito-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Instalar dependências
+        run: |
+          npm install --no-audit --no-fund --legacy-peer-deps
+          npx expo install --fix -- --legacy-peer-deps
+      - name: Gerar site
+        run: |
+          npx expo export --platform web
+          # GitHub Pages não conhece as rotas do app: a página 404 carrega o app e ele abre a rota certa
+          cp dist/index.html dist/404.html
+          touch dist/.nojekyll
+      - name: Publicar no GitHub Pages (branch gh-pages)
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+          force_orphan: true

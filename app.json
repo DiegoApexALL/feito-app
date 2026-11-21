@@ -3,7 +3,7 @@
     "name": "Feito!",
     "slug": "feito-app",
     "scheme": "feito",
-    "version": "0.2.1",
+    "version": "0.3.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
@@ -18,7 +18,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#EA580C"
       },
-      "versionCode": 2,
+      "versionCode": 3,
       "permissions": [
         "CAMERA"
       ]
@@ -35,7 +35,8 @@
       ]
     ],
     "experiments": {
-      "typedRoutes": true
+      "typedRoutes": true,
+      "baseUrl": "/feito-app"
     },
     "web": {
       "bundler": "metro",

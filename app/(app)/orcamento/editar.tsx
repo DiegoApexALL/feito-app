@@ -3,12 +3,12 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { SeletorCatalogo } from '@/components/SeletorCatalogo';
+import { ItemForm, ItemSheet } from '@/components/ItemSheet';
 import { SeletorCliente } from '@/components/SeletorCliente';
 import { Aviso, Botao, Campo, Chip, Secao } from '@/components/ui';
 import { dinheiroParaTexto, lerValor, mascaraDinheiro, moeda, numeroBR } from '@/lib/formato';
 import { montarItens } from '@/lib/montarItens';
-import { Cliente, ItemCatalogo, ItemOrcamento, Orcamento, supabase } from '@/lib/supabase';
+import { Cliente, ItemOrcamento, Orcamento, supabase } from '@/lib/supabase';
 import { mascaraTelefone } from '@/lib/validacao';
 import { cores, espaco, fonte, raio } from '@/theme';
 
@@ -26,9 +26,6 @@ const paraEdit = (i: ItemOrcamento): ItemEdit => ({
   valor: dinheiroParaTexto(Number(i.valor_unitario)),
 });
 
-const vazio = (tipo: 'servico' | 'material'): ItemEdit => ({ chave: novaChave(), tipo, descricao: '', qtd: '1', unidade: tipo === 'material' ? 'un' : 'un', valor: '' });
-
-const UNIDADES = ['un', 'm', 'm²', 'kg', 'L', 'saco', 'lata', 'rolo', 'cx', 'h', 'dia'];
 const VALIDADES = [7, 15, 30];
 const PAGAMENTOS = ['Pix', '50% de entrada e 50% no fim', 'Pix ou cartão', 'Dinheiro'];
 const RETORNOS = [
@@ -57,7 +54,8 @@ export default function EditarOrcamento() {
   const [carregando, setCarregando] = useState(!!(id || duplicarDe));
   const [cliente, setCliente] = useState<Pick<Cliente, 'id' | 'nome' | 'telefone'> | null>(null);
   const [seletor, setSeletor] = useState(false);
-  const [catalogo, setCatalogo] = useState(false);
+  const [aba, setAba] = useState<'servico' | 'material'>('servico');
+  const [folha, setFolha] = useState<{ tipo: 'servico' | 'material'; chave?: string } | null>(null);
   const [retorno, setRetorno] = useState(0);
   const [retornoOriginal, setRetornoOriginal] = useState<string | null>(null);
   const [titulo, setTitulo] = useState('');
@@ -125,6 +123,7 @@ export default function EditarOrcamento() {
       return;
     }
     setItens((atual) => [...atual.filter((i) => i.descricao.trim()), ...novos.map(paraEdit)]);
+    setAba(novos[0].tipo);
     if (!titulo.trim()) setTitulo(novos.find((n) => n.tipo === 'servico')?.descricao ?? novos[0].descricao);
     const semValor = novos.filter((n) => !n.valor_unitario).length;
     setDica(
@@ -132,17 +131,19 @@ export default function EditarOrcamento() {
     );
   }
 
-  function usarDoCatalogo(lista: ItemCatalogo[]) {
-    setCatalogo(false);
-    setItens((atual) => [
-      ...atual.filter((i) => i.descricao.trim()),
-      ...lista.map((c) => paraEdit({ tipo: c.tipo, descricao: c.descricao, quantidade: 1, unidade: c.unidade, valor_unitario: Number(c.valor_unitario) })),
-    ]);
-    if (!titulo.trim() && lista[0]) setTitulo(lista[0].descricao);
+  const itemEmEdicao = folha?.chave ? itens.find((i) => i.chave === folha.chave) ?? null : null;
+
+  function salvarItem(f: ItemForm) {
+    if (folha?.chave) setItens((l) => l.map((i) => (i.chave === folha.chave ? { ...i, ...f } : i)));
+    else setItens((l) => [...l, { chave: novaChave(), ...f }]);
+    if (!titulo.trim() && f.tipo === 'servico') setTitulo(f.descricao);
+    setFolha(null);
   }
 
-  const alterar = (chave: string, campo: Partial<ItemEdit>) => setItens((l) => l.map((i) => (i.chave === chave ? { ...i, ...campo } : i)));
-  const remover = (chave: string) => setItens((l) => l.filter((i) => i.chave !== chave));
+  function removerItem() {
+    if (folha?.chave) setItens((l) => l.filter((i) => i.chave !== folha.chave));
+    setFolha(null);
+  }
 
   async function salvar() {
     setErro(null);
@@ -264,75 +265,54 @@ export default function EditarOrcamento() {
           <Campo rotulo="Título do orçamento" placeholder="Ex.: Troca de tomadas da cozinha" value={titulo} onChangeText={setTitulo} />
 
           {/* Itens */}
-          <Secao titulo="Serviços e materiais">
-            <View style={{ gap: espaco.s }}>
-              {itens.map((i) => (
-                <View key={i.chave} style={s.item}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: espaco.s }}>
-                    <View style={s.alternar}>
-                      {(['servico', 'material'] as const).map((t) => (
-                        <Pressable key={t} onPress={() => alterar(i.chave, { tipo: t })} style={[s.alternarOp, i.tipo === t && s.alternarAtivo]}>
-                          <Text style={[s.alternarTexto, i.tipo === t && { color: cores.tinta }]}>{t === 'servico' ? 'Serviço' : 'Material'}</Text>
-                        </Pressable>
-                      ))}
-                    </View>
-                    <View style={{ flex: 1 }} />
-                    <Pressable onPress={() => remover(i.chave)} hitSlop={12} accessibilityLabel="Remover item">
-                      <Ionicons name="trash-outline" size={20} color={cores.textoSuave} />
-                    </Pressable>
-                  </View>
-                  <TextInput
-                    value={i.descricao}
-                    onChangeText={(t) => alterar(i.chave, { descricao: t })}
-                    placeholder={i.tipo === 'servico' ? 'Ex.: Troca de tomada' : 'Ex.: Fio 2,5 mm'}
-                    placeholderTextColor={cores.textoSuave}
-                    style={s.itemDesc}
-                  />
-                  <View style={{ flexDirection: 'row', gap: espaco.s, alignItems: 'flex-end' }}>
-                    <View style={{ width: 70 }}>
-                      <Text style={s.mini}>Qtd</Text>
-                      <TextInput value={i.qtd} onChangeText={(t) => alterar(i.chave, { qtd: t.replace(/[^\d,.]/g, '') })} keyboardType="decimal-pad" style={s.itemCampo} />
-                    </View>
-                    <Pressable
-                      style={{ width: 64 }}
-                      onPress={() => alterar(i.chave, { unidade: UNIDADES[(UNIDADES.indexOf(i.unidade) + 1) % UNIDADES.length] })}
-                      accessibilityLabel="Trocar unidade"
-                    >
-                      <Text style={s.mini}>Unid.</Text>
-                      <View style={[s.itemCampo, { justifyContent: 'center' }]}>
-                        <Text style={{ fontSize: 16, color: cores.tinta, fontWeight: '600' }}>{i.unidade}</Text>
-                      </View>
-                    </Pressable>
-                    <View style={{ flex: 1 }}>
-                      <Text style={s.mini}>Valor un. (R$)</Text>
-                      <TextInput
-                        value={i.valor}
-                        onChangeText={(t) => alterar(i.chave, { valor: mascaraDinheiro(t) })}
-                        keyboardType="number-pad"
-                        placeholder="0,00"
-                        placeholderTextColor={cores.textoSuave}
-                        style={s.itemCampo}
-                      />
-                    </View>
-                  </View>
-                  <Text style={[fonte.pequeno, { textAlign: 'right', fontWeight: '700', color: cores.texto }]}>
-                    {moeda(lerValor(i.qtd) * lerValor(i.valor))}
+          {/* Itens: uma aba para serviços, outra para materiais */}
+          <View style={s.abas}>
+            {(['servico', 'material'] as const).map((t) => {
+              const lista = itens.filter((i) => i.tipo === t);
+              const soma = lista.reduce((acc, i) => acc + lerValor(i.qtd) * lerValor(i.valor), 0);
+              const ativa = aba === t;
+              return (
+                <Pressable key={t} onPress={() => setAba(t)} style={[s.aba, ativa && s.abaAtiva]} accessibilityRole="tab" accessibilityState={{ selected: ativa }}>
+                  <Text style={[s.abaTitulo, ativa && { color: cores.tinta }]}>
+                    {t === 'servico' ? 'Serviços' : 'Materiais'} {lista.length ? `(${lista.length})` : ''}
                   </Text>
-                </View>
-              ))}
-              <Pressable onPress={() => setCatalogo(true)} style={s.catalogo} accessibilityRole="button">
-                <Ionicons name="pricetags-outline" size={20} color={cores.primariaEscura} />
-                <Text style={{ color: cores.primariaEscura, fontWeight: '700', fontSize: 16, flex: 1 }}>Usar dos meus preços</Text>
-                <Ionicons name="chevron-forward" size={18} color={cores.primariaEscura} />
-              </Pressable>
-              <View style={{ flexDirection: 'row', gap: espaco.s }}>
-                <Botao titulo="+ Serviço" variante="secundario" estilo={{ flex: 1, height: 48 }} onPress={() => setItens((l) => [...l, vazio('servico')])} />
-                <Botao titulo="+ Material" variante="secundario" estilo={{ flex: 1, height: 48 }} onPress={() => setItens((l) => [...l, vazio('material')])} />
-              </View>
-            </View>
-          </Secao>
+                  <Text style={[fonte.pequeno, ativa && { color: cores.texto }]}>{moeda(soma)}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
 
-          {/* Condições */}
+          <View style={{ gap: espaco.s, marginBottom: espaco.l }}>
+            {itens
+              .filter((i) => i.tipo === aba)
+              .map((i) => (
+                <Pressable key={i.chave} onPress={() => setFolha({ tipo: i.tipo, chave: i.chave })} style={({ pressed }) => [s.linhaItem, pressed && { opacity: 0.75 }]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[fonte.corpo, { fontWeight: '700', color: cores.tinta }]} numberOfLines={2}>
+                      {i.descricao}
+                    </Text>
+                    <Text style={[fonte.pequeno, !lerValor(i.valor) && { color: cores.erro, fontWeight: '600' }]}>
+                      {lerValor(i.valor) ? `${i.qtd} ${i.unidade} × ${moeda(lerValor(i.valor))}` : `${i.qtd} ${i.unidade} · falta o valor`}
+                    </Text>
+                  </View>
+                  <Text style={{ fontSize: 16, fontWeight: '800', color: cores.tinta }}>{moeda(lerValor(i.qtd) * lerValor(i.valor))}</Text>
+                  <Ionicons name="chevron-forward" size={18} color={cores.textoSuave} />
+                </Pressable>
+              ))}
+
+            <Pressable onPress={() => setFolha({ tipo: aba })} style={({ pressed }) => [s.adicionar, pressed && { opacity: 0.8 }]} accessibilityRole="button">
+              <Ionicons name="add-circle" size={24} color={cores.primariaEscura} />
+              <Text style={{ color: cores.primariaEscura, fontWeight: '800', fontSize: 17 }}>
+                {aba === 'servico' ? 'Adicionar serviço' : 'Adicionar material'}
+              </Text>
+            </Pressable>
+            {!itens.some((i) => i.tipo === aba) ? (
+              <Text style={[fonte.pequeno, { textAlign: 'center' }]}>
+                {aba === 'servico' ? 'Mão de obra, instalação, visita…' : 'Fios, canos, tinta, cimento… (deixe vazio se o cliente compra)'}
+              </Text>
+            ) : null}
+          </View>
+
           <Secao titulo="Condições">
             <Text style={[fonte.rotulo, { marginBottom: espaco.s }]}>Validade</Text>
             <View style={s.chips}>
@@ -375,7 +355,14 @@ export default function EditarOrcamento() {
         </View>
       </KeyboardAvoidingView>
 
-      <SeletorCatalogo visivel={catalogo} aoFechar={() => setCatalogo(false)} aoEscolher={usarDoCatalogo} />
+      <ItemSheet
+        visivel={!!folha}
+        tipo={folha?.tipo ?? aba}
+        inicial={itemEmEdicao}
+        aoFechar={() => setFolha(null)}
+        aoSalvar={salvarItem}
+        aoRemover={itemEmEdicao ? removerItem : undefined}
+      />
       <SeletorCliente
         visivel={seletor}
         aoFechar={() => setSeletor(false)}
@@ -403,6 +390,12 @@ const s = StyleSheet.create({
   alternarAtivo: { backgroundColor: cores.superficie, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 1 },
   alternarTexto: { fontSize: 13, fontWeight: '700', color: cores.textoSuave },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: espaco.s },
+  abas: { flexDirection: 'row', backgroundColor: '#EEEAE4', borderRadius: raio.m, padding: 4, marginBottom: espaco.m },
+  aba: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 12 },
+  abaAtiva: { backgroundColor: cores.superficie, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
+  abaTitulo: { fontSize: 16, fontWeight: '800', color: cores.textoSuave },
+  linhaItem: { flexDirection: 'row', alignItems: 'center', gap: espaco.s, backgroundColor: cores.superficie, padding: espaco.m, borderRadius: raio.m },
+  adicionar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: espaco.s, height: 56, borderRadius: raio.m, borderWidth: 1.5, borderStyle: 'dashed', borderColor: cores.primaria, backgroundColor: cores.primariaSuave },
   catalogo: { flexDirection: 'row', alignItems: 'center', gap: espaco.s, padding: espaco.m, borderRadius: raio.m, backgroundColor: cores.primariaSuave },
   rodape: {
     flexDirection: 'row',

@@ -20,7 +20,7 @@ jobs:
       # chaves públicas do app (a segurança vem do RLS no Supabase)
       EXPO_PUBLIC_SUPABASE_URL: https://jlcisnsdbrynxozrfqey.supabase.co
       EXPO_PUBLIC_SUPABASE_KEY: sb_publishable_-cL1n7qt__nXZjNU0gVkug_pkZpp8kK
-      EXPO_PUBLIC_SITE_URL: ${{ vars.SITE_URL || 'https://feito-app.expo.app' }}
+      EXPO_PUBLIC_SITE_URL: ${{ vars.SITE_URL || 'https://diegoapexall.github.io/feito-app' }}
       EXPO_PUBLIC_CHECKOUT_PRO_URL: ${{ vars.CHECKOUT_PRO_URL }}
       GH_TOKEN: ${{ github.token }}
     steps:

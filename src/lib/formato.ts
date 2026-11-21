@@ -49,4 +49,4 @@ export const STATUS: Record<StatusOrcamento, { rotulo: string; cor: string; fund
 };
 
 export const linkPublico = (token: string) =>
-  `${(process.env.EXPO_PUBLIC_SITE_URL ?? 'https://feito-app.expo.app').replace(/\/$/, '')}/o/${token}`;
+  `${(process.env.EXPO_PUBLIC_SITE_URL ?? 'https://diegoapexall.github.io/feito-app').replace(/\/$/, '')}/o/${token}`;

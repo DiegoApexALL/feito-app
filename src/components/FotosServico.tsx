@@ -4,6 +4,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useAuth } from '@/context/AuthContext';
+import { reduzirImagem } from '@/lib/imagem';
 import { Foto, supabase } from '@/lib/supabase';
 import { cores, espaco, fonte, raio } from '@/theme';
 
@@ -31,18 +32,19 @@ export function FotosServico({ orcamentoId }: { orcamentoId: string }) {
       Alert.alert('Permissão negada', 'Libere o acesso nas configurações do celular para adicionar fotos.');
       return;
     }
-    const opcoes: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 0.6, base64: true, allowsEditing: false };
+    const opcoes: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 1, allowsEditing: false };
     const r = origem === 'camera' ? await ImagePicker.launchCameraAsync(opcoes) : await ImagePicker.launchImageLibraryAsync(opcoes);
-    if (r.canceled || !r.assets[0]?.base64 || !sessao) return;
+    if (r.canceled || !r.assets[0] || !sessao) return;
 
-    const a = r.assets[0];
-    const tipo = a.mimeType ?? 'image/jpeg';
-    const caminho = `${sessao.user.id}/${orcamentoId}/${aleatorio()}.${tipo.split('/')[1] ?? 'jpg'}`;
     setEnviando(true);
-    const up = await supabase.storage.from('fotos').upload(caminho, decode(a.base64!), { contentType: tipo });
-    if (up.error) {
+    const caminho = `${sessao.user.id}/${orcamentoId}/${aleatorio()}.jpg`;
+    try {
+      const img = await reduzirImagem(r.assets[0].uri, 1400, r.assets[0].width);
+      const up = await supabase.storage.from('fotos').upload(caminho, decode(img.base64), { contentType: img.mime });
+      if (up.error) throw up.error;
+    } catch {
       setEnviando(false);
-      Alert.alert('Ops', 'Não foi possível enviar a foto (máx. 5 MB).');
+      Alert.alert('Ops', 'Não foi possível enviar a foto. Verifique a internet e tente de novo.');
       return;
     }
     const url = supabase.storage.from('fotos').getPublicUrl(caminho).data.publicUrl;
